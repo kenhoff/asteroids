@@ -1,0 +1,243 @@
+#include <cstdio>
+#include <cstdlib>
+#include <iostream>
+#include <math.h>
+#include <time.h>
+
+#ifdef __APPLE__
+
+// OpenGL mac stuff
+#include <OpenGL/gl.h>
+#include <OpenGL/glu.h>
+
+#else
+
+// OpenGL linux stuff
+#include <GL/gl.h>
+#include <GL/glu.h>
+
+#endif
+
+// SFML stuff
+#include <SFML/Window.hpp>
+#include <SFML/System.hpp>
+#include <SFML/Graphics.hpp>
+
+
+
+#include "ship.h"
+#include "projectile.h"
+#include "asteroid.h"
+#include "globals.h"
+#include "ProjectileManager.h"
+#include "AsteroidManager.h"
+#include "CollisionDetection.h"
+#include "vec2d.h"
+
+
+void resize(int, int);
+
+class ship;
+void init();
+
+
+
+
+using namespace std;
+
+
+
+ship * ship_list[100];
+int ship_count;
+ship * player;
+sf::Window* m_window;
+sf::Clock Clock;
+ProjectileManager* proj_manage;
+AsteroidManager* ast_manage;
+CollisionDetection* coll_detect;
+
+
+void init()
+{
+	resize(800, 600);
+
+	ship_count = 0;
+	proj_manage = new ProjectileManager;
+	ast_manage = new AsteroidManager;
+	player = new ship(proj_manage);
+	coll_detect = new CollisionDetection(player, proj_manage, ast_manage);
+	ship_list[ship_count] = player;
+	ship_count++;
+		//bool keys[128];
+	
+}
+
+void draw()
+{
+
+	glPushMatrix();
+
+	glBegin(GL_LINE_LOOP);
+	glVertex2f(zoom,zoom);
+	glVertex2f(-zoom,zoom);
+	glVertex2f(-zoom,-zoom);
+	glVertex2f(zoom,-zoom);
+
+	glEnd();
+
+	glPopMatrix();
+	
+	for (int i = 0; i < ship_count; i++)
+	{
+		ship_list[i]->draw();
+	}
+	
+	coll_detect->check_projectile_asteroid();
+	proj_manage->cull_projectiles();
+	ast_manage->cull_asteroids();
+	
+	proj_manage->draw_projectiles();
+	ast_manage->draw_asteroids();
+	
+}
+
+// Resize window function
+void resize(int width, int height)
+{
+
+	float ratio = (height>0) ? (GLfloat)width/height : 1;
+
+	glViewport(0, 0, width, height);
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	//gluPerspective(45.0,width,.1,20000);
+	gluOrtho2D(-ratio*zoom, ratio*zoom, -zoom, zoom);
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+}
+
+void check_keys()
+{
+	const sf::Input & input = m_window->GetInput();
+	
+	bool a = input.IsKeyDown(sf::Key::A);
+	bool s = input.IsKeyDown(sf::Key::S);
+	bool d = input.IsKeyDown(sf::Key::D);
+	bool w = input.IsKeyDown(sf::Key::W);
+	bool n = input.IsKeyDown(sf::Key::N);
+	bool space = input.IsKeyDown(sf::Key::Space);
+
+	if(a)
+	{
+		player->rotate_left();
+	}
+	if(d)
+	{
+		player->rotate_right();
+	}
+	if(w)
+	{
+		player->thrust();
+	}
+	if(s)
+	{
+		player->stabilize();
+	}
+	if(space)
+	{
+		player->shoot();
+	}
+	/*if(n)
+	{
+		asteroid* new_ast = new asteroid(	(rand() % 5) + 1, // size
+							(rand() % 50) - 25, // x pos
+							(rand() % 50) - 25, // y pos
+							((rand() % 100) - 50) / 1000.0, // x vel
+							((rand() % 100) - 50) / 1000.0, // y vel
+							((rand() % 50) - 25) / 10.0); // rotational speed
+		ast_manage->add_asteroid(new_ast);
+		new_ast = NULL;
+	}*/
+	
+}
+
+int main()
+{
+	printf("Program started...\n");
+	
+	
+	//printf("test");
+	m_window = new sf::Window(sf::VideoMode(800, 600, 32), "spaaaaaaaaaaaaaace");
+	
+	init();
+	
+	// Main loop
+	while(m_window->IsOpened()) 
+	{
+		while (Clock.GetElapsedTime() < update_rate)
+			continue;
+		
+		sf::Event Event;
+		
+		while(m_window->GetEvent(Event))
+		{
+			// Detect closed window
+			if(Event.Type == sf::Event::Closed)
+			{
+				printf("Exiting...\n");
+				m_window->Close();
+				return 0;
+			}
+			
+			// Key presses
+			else if(Event.Type == sf::Event::KeyPressed)
+			{
+				if(Event.Key.Code == sf::Key::Escape)
+				{
+					printf("Exiting...\n");
+					m_window->Close();
+					return 0;
+				}
+				if(Event.Key.Code == sf::Key::N)
+				{
+					asteroid* new_ast = new asteroid(	((float)rand()/(float)RAND_MAX)*5, // size
+										(rand() % 50) - 25, // x pos
+										(rand() % 50) - 25, // y pos
+										((rand() % 100) - 50) / 1000.0, // x vel
+										((rand() % 100) - 50) / 1000.0, // y vel
+										((rand() % 50) - 25) / 10.0); // rotational speed
+					ast_manage->add_asteroid(new_ast);
+					new_ast = NULL;
+				}
+				/*if(Event.Key.Code == sf::Key::Q)
+				{
+					printf("Exiting...\n");
+					m_window->Close();
+					return 0;
+				}*/
+			}
+			
+			// Resize window
+			else if(Event.Type == sf::Event::Resized)
+			{
+				resize(Event.Size.Width, Event.Size.Height);
+			}
+		}
+		
+		glLoadIdentity();
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		
+		check_keys();
+	
+		draw();
+		
+		m_window->Display();
+		Clock.Reset();
+	
+
+	
+	}
+	
+	return 1;
+}
+

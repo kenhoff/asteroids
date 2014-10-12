@@ -1,0 +1,14 @@
+#include "vec2d.h"
+
+vec2d vec2d::operator-(const vec2d& rhs){
+
+	vec2d v;
+	v.x = x - rhs.x;
+	v.y = y - rhs.y;
+	return v;
+
+}
+
+double vec2d::length(){
+	return sqrt(pow(x,2)+pow(y,2));
+}
